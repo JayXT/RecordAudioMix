@@ -25,7 +25,7 @@ A simple GNU/Linux bash script to record audio input and a mix of system audio a
 1. Press the assigned shortcut in order to start recording the audio input and the mix of system audio and audio input simultaneously.
 2. Play your audio and speak into the input device.
 3. Press the shortcut again to stop the recording.
-4. Find the recorded files in the output (Downloads)AA directory.
+4. Find the recorded files in the Downloads directory.
 
 ## UA
 
@@ -51,4 +51,4 @@ A simple GNU/Linux bash script to record audio input and a mix of system audio a
 1. Натисніть призначену комбінацію клавіш, щоб розпочати одночасний запис аудіовходу та міксу системного аудіо й аудіовходу.
 2. Запустіть відтворення аудіо та говоріть у пристрій вводу.
 3. Натисніть комбінацію клавіш ще раз, щоб зупинити запис.
-4. Знайдіть записані файли у каталозі виводу.
+4. Знайдіть записані файли у директорії Завантаження.
