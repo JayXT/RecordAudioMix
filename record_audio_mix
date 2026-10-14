@@ -1,0 +1,45 @@
+#!/bin/bash
+MIC_LUFS=-20
+SYS_LUFS=-24
+OUT_LUFS=-23
+SINK=mixrec
+
+pgrep -x pw-record >/dev/null && exec pkill -x pw-record
+
+f="$(xdg-user-dir DOWNLOAD)/$(date '+%Y-%m-%d %H:%M:%S')  - Recording"
+
+module=$(pactl load-module module-null-sink sink_name=$SINK \
+	channel_map=front-left,front-right,rear-left,rear-right) || exit 1
+trap 'pactl unload-module $module' EXIT
+
+for _ in $(seq 40); do pw-link -i | grep -Fqx $SINK:playback_RR && break; sleep .05; done
+
+ports() { pw-link -o | awk -v n="$1:" 'index($0, n) == 1'; }
+mapfile -t sys < <(ports "$(pactl get-default-sink)" | grep :monitor_)
+mapfile -t mic < <(ports "$(pactl get-default-source)")
+
+pw-link "${sys[0]}" $SINK:playback_FL &&
+pw-link "${sys[1]:-${sys[0]}}" $SINK:playback_FR &&
+pw-link "${mic[0]}" $SINK:playback_RL &&
+pw-link "${mic[1]:-${mic[0]}}" $SINK:playback_RR || exit 1
+
+pw-record --target=$SINK -P '{ stream.capture.sink=true }' --channels 4 \
+	--channel-map front-left,front-right,rear-left,rear-right "$f.wav"
+
+s='pan=mono|c0=0.5*c0+0.5*c1'	# system
+m='pan=mono|c0=0.5*c2+0.5*c3'	# mic
+n="loudnorm=I=$OUT_LUFS:TP=-1.5:LRA=11"
+
+gain() {
+	ffmpeg -nostdin -i "$f.wav" -filter_complex "[0:a]$1,ebur128" -f null - 2>&1 |
+	awk -v t=$2 'BEGIN { i = -70 } /^ *I: +-?[0-9]/ { i = $2 }
+		END { printf "%.1f", i < -60 ? 0 : t - i }'
+}
+
+ffmpeg -nostdin -y -loglevel error -i "$f.wav" -filter_complex \
+	"[0:a]$s,volume=$(gain "$s" $SYS_LUFS)dB[s];
+	 [0:a]$m,volume=$(gain "$m" $MIC_LUFS)dB,asplit[m][o];
+	 [s][m]amix=normalize=0,$n[mix];
+	 [o]$n[mic]" \
+	-map "[mix]" -ac 1 -ar 44100 -b:a 96k "$f.mix.mp3" \
+	-map "[mic]" -ac 1 -ar 44100 -b:a 64k "$f.mic.mp3" && rm "$f.wav"
